@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Legal Auto — Admin Control Hub</title>
+  <meta name="description" content="Admin broadcast and notification center for the Legal Auto Chrome Extension">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================================
+       DESIGN SYSTEM — Legal Auto Admin Hub
+       Dark Glassmorphism · Premium Gradients · Micro-animations
+    ============================================================ */
+    :root {
+      --bg-base: #070b14;
+      --bg-card: rgba(15, 23, 42, 0.8);
+      --bg-input: rgba(0,0,0,0.45);
+      --border: rgba(255,255,255,0.08);
+      --border-focus: #3b82f6;
+      --text: #f1f5f9;
+      --text-muted: #64748b;
+      --text-dim: #94a3b8;
+      --blue: #3b82f6;
+      --cyan: #06b6d4;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #ef4444;
+      --purple: #8b5cf6;
+      --radius: 14px;
+      --radius-sm: 8px;
+      --shadow: 0 24px 48px rgba(0,0,0,0.5);
+      --font: 'Outfit', sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font);
+      background: var(--bg-base);
+      background-image:
+        radial-gradient(ellipse 80% 50% at 20% 0%, rgba(59,130,246,0.15) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 100%, rgba(139,92,246,0.12) 0%, transparent 60%);
+      background-attachment: fixed;
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── PIN LOCK SCREEN ── */
+    #pin-screen {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg-base);
+      background-image:
+        radial-gradient(ellipse 80% 50% at 20% 0%, rgba(59,130,246,0.18) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 100%, rgba(139,92,246,0.15) 0%, transparent 60%);
+    }
+    .pin-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 48px 40px;
+      width: 380px;
+      text-align: center;
+      box-shadow: var(--shadow);
+      animation: card-in 0.4s cubic-bezier(.22,1,.36,1);
+    }
+    @keyframes card-in {
+      from { opacity: 0; transform: scale(0.92) translateY(16px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .pin-icon {
+      font-size: 48px;
+      display: block;
+      margin-bottom: 16px;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    .pin-card h1 {
+      font-size: 22px; font-weight: 800; margin-bottom: 4px;
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .pin-card p { font-size: 13px; color: var(--text-muted); margin-bottom: 28px; }
+    .pin-dots {
+      display: flex; justify-content: center; gap: 12px; margin-bottom: 24px;
+    }
+    .pin-dot {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.2);
+      background: transparent;
+      transition: all 0.2s;
+    }
+    .pin-dot.filled {
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      border-color: var(--cyan);
+      box-shadow: 0 0 12px rgba(6,182,212,0.5);
+    }
+    .pin-dot.error {
+      background: var(--rose);
+      border-color: var(--rose);
+      animation: shake 0.4s ease;
+    }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%,60% { transform: translateX(-4px); }
+      40%,80% { transform: translateX(4px); }
+    }
+    .pin-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+      margin-bottom: 12px;
+    }
+    .pin-key {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 20px; font-weight: 600;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .pin-key:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.15); transform: scale(1.04); }
+    .pin-key:active { transform: scale(0.96); }
+    .pin-key.del { font-size: 18px; color: var(--text-muted); }
+    .pin-error-msg { font-size: 12px; color: var(--rose); min-height: 18px; margin-top: 4px; }
+
+    /* ── MAIN APP (hidden until unlocked) ── */
+    #app { display: none; }
+    #app.unlocked { display: block; }
+
+    /* ── LAYOUT ── */
+    .layout { max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
+
+    /* ── HEADER ── */
+    .header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 24px;
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 28px;
+      box-shadow: var(--shadow);
+    }
+    .header-brand { display: flex; align-items: center; gap: 14px; }
+    .brand-icon {
+      font-size: 26px; padding: 8px 12px;
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      border-radius: var(--radius-sm);
+      box-shadow: 0 0 20px rgba(59,130,246,0.3);
+    }
+    .brand-title { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+    .brand-title span { background: linear-gradient(135deg, var(--cyan), var(--blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .brand-sub { font-size: 12px; color: var(--text-muted); }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    .status-pill {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 14px; border-radius: 9999px;
+      font-size: 12px; font-weight: 600;
+      border: 1px solid var(--border);
+    }
+    .pill-online { border-color: rgba(16,185,129,.35); background: rgba(16,185,129,.1); color: #34d399; }
+    .pill-offline { border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.1); color: #f87171; }
+    .pill-checking { border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.1); color: #fbbf24; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; animation: pulse-dot 1.5s infinite; }
+    .pill-online .dot { background: var(--emerald); box-shadow: 0 0 8px var(--emerald); }
+    .pill-checking .dot { background: var(--amber); }
+    .pill-offline .dot { background: var(--rose); animation: none; }
+    @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .lock-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 7px 14px; border-radius: var(--radius-sm);
+      font-family: var(--font); font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all .2s;
+    }
+    .lock-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+
+    /* ── TABS ── */
+    .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 24px; overflow-x: auto; }
+    .tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); padding: 11px 18px; font-family: var(--font); font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all .2s; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      margin-bottom: 20px;
+    }
+    .card-title { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+    .card-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+    .grid-2 { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; }
+    @media(max-width:860px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    /* ── FORMS ── */
+    .form { display: flex; flex-direction: column; gap: 16px; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: 13px; font-weight: 600; }
+    .field input, .field select, .field textarea {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      color: var(--text);
+      font-family: var(--font); font-size: 14px;
+      transition: all .2s; outline: none;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(59,130,246,.2);
+    }
+    .field select option { background: #1e293b; }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .help { font-size: 11.5px; color: var(--text-muted); }
+
+    /* ── BUTTONS ── */
+    .btn-primary {
+      background: linear-gradient(135deg, var(--blue), var(--cyan));
+      color: #fff; border: none; border-radius: var(--radius-sm);
+      padding: 11px 20px; font-family: var(--font); font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: all .2s;
+      box-shadow: 0 4px 16px rgba(59,130,246,.3);
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59,130,246,.4); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .btn-primary.large { padding: 14px 28px; font-size: 15px; }
+    .btn-secondary {
+      background: rgba(255,255,255,0.07); color: var(--text);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 10px 18px; font-family: var(--font); font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all .2s;
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,.12); }
+    .btn-danger-sm {
+      background: rgba(239,68,68,.15); color: #f87171;
+      border: 1px solid rgba(239,68,68,.3); border-radius: 6px;
+      padding: 4px 10px; font-size: 12px; cursor: pointer;
+    }
+    .btn-danger-sm:hover { background: rgba(239,68,68,.28); }
+    .row-btns { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    /* ── PREVIEW ── */
+    .preview-chrome {
+      background: #1e293b; border: 1px solid rgba(255,255,255,.12);
+      border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;
+    }
+    .chrome-hdr { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #94a3b8; margin-bottom: 8px; }
+    .chrome-app { font-weight: 600; color: #e2e8f0; }
+    .chrome-time { margin-left: auto; }
+    .chrome-body h4 { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+    .chrome-body p { font-size: 13px; color: #cbd5e1; line-height: 1.4; }
+    .preview-inapp {
+      display: flex; align-items: center; gap: 12px;
+      background: rgba(30,41,59,.85); border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px 16px;
+    }
+    .inapp-badge {
+      font-size: 10px; font-weight: 800; padding: 3px 7px;
+      border-radius: 4px; text-transform: uppercase; flex-shrink: 0;
+    }
+    .badge-update { background: rgba(59,130,246,.25); color: #93c5fd; }
+    .badge-info   { background: rgba(6,182,212,.25); color: #67e8f9; }
+    .badge-warning{ background: rgba(245,158,11,.25); color: #fcd34d; }
+    .badge-critical{ background: rgba(239,68,68,.25); color: #fca5a5; }
+    .inapp-body strong { display: block; font-size: 13px; }
+    .inapp-body p { font-size: 12px; color: var(--text-muted); }
+    .inapp-btn {
+      margin-left: auto; background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.15); color: #fff;
+      padding: 5px 12px; font-size: 12px; border-radius: 6px;
+      white-space: nowrap; flex-shrink: 0;
+    }
+
+    /* ── ALERT BOX ── */
+    .alert { padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; display: none; margin-top: 12px; }
+    .alert.success { background: rgba(16,185,129,.15); border: 1px solid rgba(16,185,129,.3); color: #34d399; }
+    .alert.error   { background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.3); color: #f87171; }
+
+    /* ── TABLE ── */
+    .tbl-wrap { overflow-x: auto; margin-top: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 11px 14px; background: rgba(0,0,0,.25); color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border); }
+    td { padding: 11px 14px; border-bottom: 1px solid rgba(255,255,255,.04); }
+    tr:hover td { background: rgba(255,255,255,.02); }
+    .pill { display: inline-block; padding: 3px 8px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+    .pill-active { background: rgba(16,185,129,.2); color: #34d399; }
+    .pill-inactive{ background: rgba(107,114,128,.2); color: #9ca3af; }
+    .flex-row { display: flex; gap: 6px; align-items: center; }
+    .text-muted { color: var(--text-muted); }
+    .text-center { text-align: center; }
+
+    /* ── SQL BLOCK ── */
+    .sql-steps { background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.2); border-radius: var(--radius-sm); padding: 16px 20px; margin-bottom: 16px; }
+    .sql-steps h4 { font-size: 13px; color: var(--cyan); margin-bottom: 8px; }
+    .sql-steps ol { padding-left: 18px; font-size: 13px; color: var(--text-dim); }
+    .sql-steps li { margin-bottom: 4px; }
+    .sql-steps a { color: var(--cyan); }
+    .sql-pre { background: #04080f; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 20px; overflow-x: auto; font-family: var(--mono); font-size: 12px; color: #cbd5e1; max-height: 480px; overflow-y: auto; white-space: pre; }
+
+    /* ── TAB PANES ── */
+    .pane { display: none; }
+    .pane.active { display: block; }
+
+    /* ── LETTER MODAL ── */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 9998; padding: 20px; display: none; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: #0f172a; border: 1px solid var(--border); border-radius: var(--radius); max-width: 700px; width: 100%; max-height: 85vh; display: flex; flex-direction: column; box-shadow: var(--shadow); }
+    .modal-hdr { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--border); }
+    .modal-hdr h3 { font-size: 15px; }
+    .modal-close { background: none; border: none; font-size: 22px; color: var(--text-muted); cursor: pointer; }
+    .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+    .modal-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(0,0,0,.3); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 14px; font-size: 12px; }
+    .letter-text { background: #fff; color: #111; padding: 24px; border-radius: var(--radius-sm); font-family: 'Times New Roman', serif; font-size: 14px; line-height: 1.65; white-space: pre-wrap; }
+    .modal-ftr { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════ PIN LOCK SCREEN ════════════════════════ -->
+<div id="pin-screen">
+  <div class="pin-card">
+    <span class="pin-icon">⚖️</span>
+    <h1>Legal Auto</h1>
+    <p>Admin Control Hub · Enter PIN to continue</p>
+    <div class="pin-dots" id="pin-dots">
+      <div class="pin-dot" id="dot-0"></div>
+      <div class="pin-dot" id="dot-1"></div>
+      <div class="pin-dot" id="dot-2"></div>
+      <div class="pin-dot" id="dot-3"></div>
+    </div>
+    <div class="pin-grid" id="pin-grid">
+      <button class="pin-key" data-k="1">1</button>
+      <button class="pin-key" data-k="2">2</button>
+      <button class="pin-key" data-k="3">3</button>
+      <button class="pin-key" data-k="4">4</button>
+      <button class="pin-key" data-k="5">5</button>
+      <button class="pin-key" data-k="6">6</button>
+      <button class="pin-key" data-k="7">7</button>
+      <button class="pin-key" data-k="8">8</button>
+      <button class="pin-key" data-k="9">9</button>
+      <button class="pin-key" data-k="0">0</button>
+      <button class="pin-key del" data-k="del">⌫</button>
+    </div>
+    <div class="pin-error-msg" id="pin-error"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════ MAIN APP ════════════════════════ -->
+<div id="app">
+  <div class="layout">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-brand">
+        <span class="brand-icon">⚡</span>
+        <div>
+          <div class="brand-title">Legal Auto <span>Admin Hub</span></div>
+          <div class="brand-sub">Broadcast Notifications · Case Archive · Cloud Memory Control</div>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="status-pill pill-checking" id="conn-pill">
+          <span class="dot"></span>
+          <span id="conn-text">Connecting...</span>
+        </div>
+        <button class="lock-btn" id="lock-btn">🔒 Lock</button>
+      </div>
+    </header>
+
+    <!-- Tabs -->
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="broadcast">📢 Broadcast Push</button>
+      <button class="tab" data-tab="cases">🗄️ Case Memory</button>
+      <button class="tab" data-tab="letters">✉️ Letter Archive</button>
+      <button class="tab" data-tab="sql">📋 SQL Schema</button>
+    </nav>
+
+    <!-- ──── TAB: BROADCAST ──── -->
+    <div class="pane active" id="pane-broadcast">
+      <div class="grid-2">
+        <!-- Compose Card -->
+        <div class="card">
+          <div class="card-title">📢 Broadcast to All Extension Users</div>
+          <div class="card-sub">Send real-time Chrome desktop popups and in-app bell notifications to every active Legal Auto user.</div>
+          <form class="form" id="broadcast-form">
+            <div class="field">
+              <label>Title *</label>
+              <input type="text" id="f-title" required value="🚀 Legal Auto Update" placeholder="e.g. New feature released!">
+            </div>
+            <div class="field">
+              <label>Type</label>
+              <select id="f-type">
+                <option value="update">🚀 Update — New release / feature</option>
+                <option value="info" selected>🔔 Info — General announcement</option>
+                <option value="warning">⚠️ Warning — Maintenance / notice</option>
+                <option value="critical">🚨 Critical — Immediate action required</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Message *</label>
+              <textarea id="f-message" rows="3" required placeholder="Describe the announcement, feature, or important notice...">A new version of Legal Auto is available. Please reload the extension to receive updates.</textarea>
+            </div>
+            <div class="row-2">
+              <div class="field">
+                <label>Action Button Label</label>
+                <input type="text" id="f-action-label" placeholder="e.g. Open Dashboard" value="Open Dashboard">
+              </div>
+              <div class="field">
+                <label>Action URL / Link</label>
+                <input type="text" id="f-action-url" placeholder="https://... or dashboard.html" value="">
+              </div>
+            </div>
+            <div class="field">
+              <label>Expires After</label>
+              <select id="f-expiry">
+                <option value="1">1 Day</option>
+                <option value="3">3 Days</option>
+                <option value="7" selected>7 Days</option>
+                <option value="30">30 Days</option>
+                <option value="0">Never (manual deactivation)</option>
+              </select>
+            </div>
+            <button type="submit" class="btn-primary large" id="btn-broadcast">📡 Broadcast to All Users</button>
+            <div class="alert" id="broadcast-alert"></div>
+          </form>
+        </div>
+
+        <!-- Preview Card -->
+        <div class="card">
+          <div class="card-title" style="margin-bottom:4px">📱 Live Preview</div>
+          <div class="card-sub">How users will see this notification:</div>
+          <div class="preview-chrome">
+            <div class="chrome-hdr">
+              <span>⚖️</span>
+              <span class="chrome-app">Legal Department Automation</span>
+              <span class="chrome-time">now</span>
+            </div>
+            <div class="chrome-body">
+              <h4 id="prev-title">🚀 Legal Auto Update</h4>
+              <p id="prev-msg">A new version of Legal Auto is available.</p>
+            </div>
+          </div>
+          <div class="preview-inapp" id="prev-inapp">
+            <span class="inapp-badge badge-info" id="prev-badge">INFO</span>
+            <div class="inapp-body">
+              <strong id="prev-inapp-title">🚀 Legal Auto Update</strong>
+              <p id="prev-inapp-msg">A new version is available.</p>
+            </div>
+            <button class="inapp-btn" id="prev-btn">Open Dashboard</button>
+          </div>
+
+          <!-- Active Broadcasts Table -->
+          <div style="margin-top:24px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <strong style="font-size:14px">📋 Active Broadcasts</strong>
+              <button class="btn-secondary" id="btn-refresh-bc" style="padding:5px 12px;font-size:12px">🔄 Refresh</button>
+            </div>
+            <div class="tbl-wrap">
+              <table id="bc-table">
+                <thead><tr><th>Status</th><th>Type</th><th>Title</th><th>Created</th><th></th></tr></thead>
+                <tbody id="bc-tbody"><tr><td colspan="5" class="text-center text-muted" style="padding:16px">Loading...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ──── TAB: CASES ──── -->
+    <div class="pane" id="pane-cases">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+          <div>
+            <div class="card-title">🗄️ Universal Case Memory</div>
+            <div class="card-sub" style="margin-bottom:0">All SharePoint files processed by the extension — sender data, AI extractions, statuses.</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <input type="text" id="cases-search" placeholder="🔍 Search name, file, company..." style="background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-size:13px;width:240px;outline:none">
+            <button class="btn-secondary" id="btn-refresh-cases" style="padding:8px 14px;font-size:12px">🔄 Refresh</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table id="cases-table">
+            <thead><tr><th>File</th><th>Sender</th><th>Company</th><th>Type</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody id="cases-tbody"><tr><td colspan="6" class="text-center text-muted" style="padding:20px">Loading cases...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ──── TAB: LETTERS ──── -->
+    <div class="pane" id="pane-letters">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+          <div>
+            <div class="card-title">✉️ DIN 5008 Letter Archive</div>
+            <div class="card-sub" style="margin-bottom:0">Permanent cloud archive of every generated GDPR response letter.</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <input type="text" id="letters-search" placeholder="🔍 Search recipient, subject..." style="background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-size:13px;width:240px;outline:none">
+            <button class="btn-secondary" id="btn-refresh-letters" style="padding:8px 14px;font-size:12px">🔄 Refresh</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table id="letters-table">
+            <thead><tr><th>Recipient</th><th>Company</th><th>Subject</th><th>Date</th><th>Action</th></tr></thead>
+            <tbody id="letters-tbody"><tr><td colspan="5" class="text-center text-muted" style="padding:20px">Loading letters...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ──── TAB: SQL ──── -->
+    <div class="pane" id="pane-sql">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div>
+            <div class="card-title">📋 PostgreSQL Schema Setup</div>
+            <div class="card-sub" style="margin-bottom:0">Run this script once in your Supabase SQL Editor to initialize all tables.</div>
+          </div>
+          <button class="btn-primary" id="btn-copy-sql">📋 Copy SQL</button>
+        </div>
+        <div class="sql-steps">
+          <h4>Quick Setup:</h4>
+          <ol>
+            <li>Open <a href="https://supabase.com/dashboard" target="_blank">Supabase Dashboard</a> → SQL Editor → New Query</li>
+            <li>Paste the script below and press <strong>Run (Ctrl+Enter)</strong></li>
+            <li>All tables, indexes & RLS policies will be created automatically</li>
+          </ol>
+        </div>
+        <pre class="sql-pre" id="sql-display">Loading SQL schema...</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Letter Modal -->
+<div class="modal-overlay" id="letter-modal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h3 id="modal-title">Letter Preview</h3>
+      <button class="modal-close" id="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-meta">
+        <div><strong>Recipient:</strong> <span id="m-recipient">-</span></div>
+        <div><strong>Company:</strong> <span id="m-company">-</span></div>
+        <div><strong>Subject:</strong> <span id="m-subject">-</span></div>
+        <div><strong>Date:</strong> <span id="m-date">-</span></div>
+      </div>
+      <div class="letter-text" id="m-body"></div>
+    </div>
+    <div class="modal-ftr">
+      <button class="btn-secondary" id="modal-copy">📋 Copy</button>
+      <button class="btn-primary" id="modal-dl">💾 Download TXT</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+// CONFIG — update these if credentials change
+// ══════════════════════════════════════════════════
+const SUPABASE_URL = "https://idqrzmjdrjluoyffthby.supabase.co";
+const SUPABASE_KEY = "sb_publishable_r5V9_i_I5VUtrNC5DxDcnQ_71isnT-w";
+const ADMIN_PIN    = "2024";   // ← Change this PIN before deploying!
+
+// ══════════════════════════════════════════════════
+// PIN LOCK
+// ══════════════════════════════════════════════════
+let pinBuffer = "";
+const PIN_LENGTH = 4;
+const SESSION_KEY = "la_admin_unlocked";
+
+function isSessionValid() {
+  const t = sessionStorage.getItem(SESSION_KEY);
+  return t && (Date.now() - parseInt(t)) < 4 * 60 * 60 * 1000; // 4h session
+}
+
+function unlock() {
+  sessionStorage.setItem(SESSION_KEY, Date.now().toString());
+  document.getElementById("pin-screen").style.display = "none";
+  document.getElementById("app").classList.add("unlocked");
+  initApp();
+}
+
+if (isSessionValid()) {
+  document.getElementById("pin-screen").style.display = "none";
+  document.getElementById("app").classList.add("unlocked");
+}
+
+document.getElementById("pin-grid").addEventListener("click", (e) => {
+  const key = e.target.closest("[data-k]")?.dataset?.k;
+  if (!key) return;
+  if (key === "del") {
+    pinBuffer = pinBuffer.slice(0, -1);
+  } else if (pinBuffer.length < PIN_LENGTH) {
+    pinBuffer += key;
+  }
+  updateDots();
+  if (pinBuffer.length === PIN_LENGTH) checkPin();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (!document.getElementById("pin-screen").style.display || document.getElementById("pin-screen").style.display === "flex" || document.getElementById("pin-screen").style.display === "") {
+    if (e.key >= "0" && e.key <= "9" && pinBuffer.length < PIN_LENGTH) {
+      pinBuffer += e.key;
+      updateDots();
+      if (pinBuffer.length === PIN_LENGTH) checkPin();
+    } else if (e.key === "Backspace") {
+      pinBuffer = pinBuffer.slice(0,-1);
+      updateDots();
+    }
+  }
+});
+
+function updateDots() {
+  for (let i = 0; i < PIN_LENGTH; i++) {
+    const d = document.getElementById(`dot-${i}`);
+    d.className = "pin-dot" + (i < pinBuffer.length ? " filled" : "");
+  }
+}
+
+function checkPin() {
+  if (pinBuffer === ADMIN_PIN) {
+    unlock();
+  } else {
+    for (let i = 0; i < PIN_LENGTH; i++) {
+      document.getElementById(`dot-${i}`).className = "pin-dot error";
+    }
+    document.getElementById("pin-error").textContent = "Incorrect PIN. Try again.";
+    setTimeout(() => {
+      pinBuffer = "";
+      updateDots();
+      document.getElementById("pin-error").textContent = "";
+    }, 900);
+  }
+}
+
+document.getElementById("lock-btn")?.addEventListener("click", () => {
+  sessionStorage.removeItem(SESSION_KEY);
+  location.reload();
+});
+
+// ══════════════════════════════════════════════════
+// SUPABASE REST HELPER
+// ══════════════════════════════════════════════════
+async function sbFetch(path, opts = {}) {
+  const url = `${SUPABASE_URL}/rest/v1/${path.replace(/^\//, "")}`;
+  const r = await fetch(url, {
+    ...opts,
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json",
+      "Prefer": opts.prefer || "return=representation",
+      ...(opts.headers || {})
+    }
+  });
+  if (r.status === 204) return null;
+  if (!r.ok) { const t = await r.text(); throw new Error(`${r.status}: ${t}`); }
+  return r.json();
+}
+
+// ══════════════════════════════════════════════════
+// INIT APP
+// ══════════════════════════════════════════════════
+function initApp() {
+  setupTabs();
+  setupPreview();
+  checkConn();
+  loadBroadcasts();
+  loadCases();
+  loadLetters();
+  loadSQL();
+  setupModal();
+}
+
+// ══════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════
+function setupTabs() {
+  document.querySelectorAll(".tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".pane").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById(`pane-${btn.dataset.tab}`).classList.add("active");
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════
+// CONNECTION TEST
+// ══════════════════════════════════════════════════
+async function checkConn() {
+  const pill = document.getElementById("conn-pill");
+  const txt  = document.getElementById("conn-text");
+  try {
+    const t0 = performance.now();
+    await sbFetch("broadcast_notifications?select=id&limit=1");
+    const ms = Math.round(performance.now() - t0);
+    pill.className = "status-pill pill-online";
+    txt.textContent = `Supabase Connected (${ms}ms)`;
+  } catch(e) {
+    pill.className = "status-pill pill-offline";
+    txt.textContent = "Supabase Disconnected";
+  }
+}
+
+// ══════════════════════════════════════════════════
+// LIVE PREVIEW
+// ══════════════════════════════════════════════════
+function setupPreview() {
+  const sync = () => {
+    const title = document.getElementById("f-title").value || "Title";
+    const msg   = document.getElementById("f-message").value || "Message...";
+    const type  = document.getElementById("f-type").value;
+    const label = document.getElementById("f-action-label").value;
+    document.getElementById("prev-title").textContent = title;
+    document.getElementById("prev-msg").textContent   = msg;
+    document.getElementById("prev-inapp-title").textContent = title;
+    document.getElementById("prev-inapp-msg").textContent   = msg.substring(0,80) + (msg.length > 80 ? "…" : "");
+    const badge = document.getElementById("prev-badge");
+    badge.textContent  = type.toUpperCase();
+    badge.className    = `inapp-badge badge-${type}`;
+    const btn = document.getElementById("prev-btn");
+    btn.textContent    = label || "Open";
+    btn.style.display  = label ? "block" : "none";
+  };
+  ["f-title","f-message","f-type","f-action-label"].forEach(id =>
+    document.getElementById(id).addEventListener("input", sync)
+  );
+  sync();
+}
+
+// ══════════════════════════════════════════════════
+// BROADCAST
+// ══════════════════════════════════════════════════
+document.getElementById("broadcast-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById("btn-broadcast");
+  btn.disabled = true; btn.textContent = "⏳ Sending...";
+  const expiryDays = parseInt(document.getElementById("f-expiry").value);
+  let expiresAt = null;
+  if (expiryDays > 0) {
+    const d = new Date(); d.setDate(d.getDate() + expiryDays);
+    expiresAt = d.toISOString();
+  }
+  try {
+    await sbFetch("broadcast_notifications", {
+      method: "POST",
+      body: JSON.stringify({
+        title:      document.getElementById("f-title").value.trim(),
+        message:    document.getElementById("f-message").value.trim(),
+        type:       document.getElementById("f-type").value,
+        action_label: document.getElementById("f-action-label").value.trim() || null,
+        action_url: document.getElementById("f-action-url").value.trim() || null,
+        is_active:  true,
+        expires_at: expiresAt,
+        created_by: "Admin"
+      })
+    });
+    showAlert("broadcast-alert", "✅ Broadcast sent! All extension users will see this notification.", "success");
+    loadBroadcasts();
+  } catch(err) {
+    showAlert("broadcast-alert", `❌ Failed: ${err.message}`, "error");
+  } finally {
+    btn.disabled = false; btn.innerHTML = "📡 Broadcast to All Users";
+  }
+});
+
+async function loadBroadcasts() {
+  const tbody = document.getElementById("bc-tbody");
+  tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted" style="padding:16px">Loading...</td></tr>`;
+  try {
+    const data = await sbFetch("broadcast_notifications?order=created_at.desc&limit=20") || [];
+    if (!data.length) {
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted" style="padding:16px">No broadcasts yet.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = data.map(n => `
+      <tr>
+        <td>${n.is_active ? '<span class="pill pill-active">Active</span>' : '<span class="pill pill-inactive">Off</span>'}</td>
+        <td><span class="inapp-badge badge-${n.type}">${n.type||"info"}</span></td>
+        <td><strong>${esc(n.title)}</strong><br><span class="text-muted" style="font-size:11px">${esc(n.message).substring(0,60)}…</span></td>
+        <td style="font-size:11px;color:var(--text-muted)">${n.created_at ? new Date(n.created_at).toLocaleString() : "-"}</td>
+        <td>
+          <div class="flex-row">
+            ${n.is_active ? `<button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="deactivate('${n.id}')">Deactivate</button>` : ""}
+            <button class="btn-danger-sm" onclick="deleteNotif('${n.id}')">Delete</button>
+          </div>
+        </td>
+      </tr>`).join("");
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center" style="color:var(--rose);padding:16px">Error: ${e.message}</td></tr>`;
+  }
+}
+
+document.getElementById("btn-refresh-bc").addEventListener("click", loadBroadcasts);
+
+async function deactivate(id) {
+  if (!confirm("Deactivate this broadcast?")) return;
+  await sbFetch(`broadcast_notifications?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ is_active: false }) });
+  loadBroadcasts();
+}
+async function deleteNotif(id) {
+  if (!confirm("Permanently delete this notification?")) return;
+  await sbFetch(`broadcast_notifications?id=eq.${id}`, { method: "DELETE" });
+  loadBroadcasts();
+}
+
+// ══════════════════════════════════════════════════
+// CASES
+// ══════════════════════════════════════════════════
+async function loadCases(q = "") {
+  const tbody = document.getElementById("cases-tbody");
+  tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted" style="padding:20px">Loading...</td></tr>`;
+  try {
+    let path = "legal_cases?order=created_at.desc&limit=50";
+    if (q.trim()) {
+      const enc = encodeURIComponent(`%${q.trim()}%`);
+      path += `&or=(file_name.ilike.${enc},sender_name.ilike.${enc},detected_company.ilike.${enc})`;
+    }
+    const data = await sbFetch(path) || [];
+    if (!data.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted" style="padding:20px">No cases in cloud memory yet.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = data.map(c => `
+      <tr>
+        <td><strong>📄 ${esc(c.file_name)}</strong></td>
+        <td>${c.sender_name ? `<strong>${esc(c.sender_name)}</strong><br><span style="font-size:11px;color:var(--text-muted)">${esc(c.sender_city||"")} ${c.sender_email ? "· " + esc(c.sender_email) : ""}</span>` : "<span class='text-muted'>—</span>"}</td>
+        <td>${c.detected_company ? `<span class="inapp-badge badge-info">${esc(c.detected_company)}</span>` : "—"}</td>
+        <td style="font-size:12px">${esc(c.legal_type||"GDPR")}</td>
+        <td><span class="pill ${c.status === "processed" ? "pill-active" : "pill-inactive"}">${c.status||"pending"}</span></td>
+        <td style="font-size:11px;color:var(--text-muted)">${c.created_at ? new Date(c.created_at).toLocaleString() : "—"}</td>
+      </tr>`).join("");
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="color:var(--rose);padding:20px">Error: ${e.message}</td></tr>`;
+  }
+}
+
+let casesTimer;
+document.getElementById("cases-search").addEventListener("input", e => {
+  clearTimeout(casesTimer); casesTimer = setTimeout(() => loadCases(e.target.value), 300);
+});
+document.getElementById("btn-refresh-cases").addEventListener("click", () => loadCases(document.getElementById("cases-search").value));
+
+// ══════════════════════════════════════════════════
+// LETTERS
+// ══════════════════════════════════════════════════
+let allLetters = [];
+
+async function loadLetters(q = "") {
+  const tbody = document.getElementById("letters-tbody");
+  tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted" style="padding:20px">Loading...</td></tr>`;
+  try {
+    let path = "generated_letters?order=generated_at.desc&limit=50";
+    if (q.trim()) {
+      const enc = encodeURIComponent(`%${q.trim()}%`);
+      path += `&or=(recipient_name.ilike.${enc},company.ilike.${enc},subject.ilike.${enc})`;
+    }
+    allLetters = await sbFetch(path) || [];
+    if (!allLetters.length) {
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted" style="padding:20px">No archived letters yet.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = allLetters.map(l => `
+      <tr>
+        <td><strong>${esc(l.recipient_name||"Unknown")}</strong></td>
+        <td><span class="inapp-badge badge-info">${esc(l.company||"—")}</span></td>
+        <td style="font-size:12px">${esc(l.subject||"—")}</td>
+        <td style="font-size:11px;color:var(--text-muted)">${l.generated_at ? new Date(l.generated_at).toLocaleString() : "—"}</td>
+        <td><button class="btn-primary" style="padding:4px 10px;font-size:12px" onclick="openLetter('${l.id}')">👁️ View</button></td>
+      </tr>`).join("");
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center" style="color:var(--rose);padding:20px">Error: ${e.message}</td></tr>`;
+  }
+}
+
+let lettersTimer;
+document.getElementById("letters-search").addEventListener("input", e => {
+  clearTimeout(lettersTimer); lettersTimer = setTimeout(() => loadLetters(e.target.value), 300);
+});
+document.getElementById("btn-refresh-letters").addEventListener("click", () => loadLetters(document.getElementById("letters-search").value));
+
+// ══════════════════════════════════════════════════
+// LETTER MODAL
+// ══════════════════════════════════════════════════
+let activeLetter = null;
+
+function openLetter(id) {
+  activeLetter = allLetters.find(l => l.id === id);
+  if (!activeLetter) return;
+  document.getElementById("modal-title").textContent = `Letter — ${activeLetter.recipient_name || "Unknown"}`;
+  document.getElementById("m-recipient").textContent = activeLetter.recipient_name || "—";
+  document.getElementById("m-company").textContent   = activeLetter.company || "—";
+  document.getElementById("m-subject").textContent   = activeLetter.subject || "—";
+  document.getElementById("m-date").textContent      = activeLetter.generated_at ? new Date(activeLetter.generated_at).toLocaleString() : "—";
+  document.getElementById("m-body").textContent      = activeLetter.letter_body || "(Empty)";
+  document.getElementById("letter-modal").classList.add("open");
+}
+
+function setupModal() {
+  document.getElementById("modal-close").addEventListener("click", () => document.getElementById("letter-modal").classList.remove("open"));
+  document.getElementById("letter-modal").addEventListener("click", e => { if (e.target === document.getElementById("letter-modal")) document.getElementById("letter-modal").classList.remove("open"); });
+  document.getElementById("modal-copy").addEventListener("click", () => {
+    if (activeLetter?.letter_body) { navigator.clipboard.writeText(activeLetter.letter_body); document.getElementById("modal-copy").textContent = "✓ Copied!"; setTimeout(() => document.getElementById("modal-copy").textContent = "📋 Copy", 2000); }
+  });
+  document.getElementById("modal-dl").addEventListener("click", () => {
+    if (activeLetter?.letter_body) {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([activeLetter.letter_body], { type: "text/plain" }));
+      a.download = `Antwort_${(activeLetter.recipient_name||"Letter").replace(/\s+/g,"_")}.txt`;
+      a.click();
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════
+// SQL SCHEMA
+// ══════════════════════════════════════════════════
+const SQL_SCHEMA = `-- Legal Auto Supabase Schema
+-- Run this once in Supabase Dashboard → SQL Editor
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+CREATE TABLE IF NOT EXISTS public.legal_cases (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    file_name TEXT NOT NULL,
+    folder_source TEXT DEFAULT 'incoming',
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'analyzing', 'processed', 'failed')),
+    sender_name TEXT, sender_street TEXT, sender_zip TEXT, sender_city TEXT,
+    sender_email TEXT, sender_phone TEXT, detected_company TEXT, legal_type TEXT,
+    recommended_action TEXT, raw_analysis JSONB, assigned_to TEXT DEFAULT 'team',
+    created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.action_reports (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    case_id UUID REFERENCES public.legal_cases(id) ON DELETE SET NULL,
+    file_name TEXT, company TEXT, action_executed TEXT,
+    planet49_status TEXT DEFAULT 'SUCCESS', p49_payload JSONB,
+    executed_by TEXT DEFAULT 'system', executed_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.generated_letters (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    case_id UUID REFERENCES public.legal_cases(id) ON DELETE SET NULL,
+    company TEXT, recipient_name TEXT, recipient_address TEXT,
+    subject TEXT, letter_body TEXT, template_type TEXT DEFAULT 'DIN_5008',
+    generated_by TEXT DEFAULT 'system', generated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.broadcast_notifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title TEXT NOT NULL, message TEXT NOT NULL,
+    type TEXT DEFAULT 'info' CHECK (type IN ('info','update','warning','critical')),
+    action_url TEXT, action_label TEXT, target_audience TEXT DEFAULT 'all',
+    is_active BOOLEAN DEFAULT true, expires_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(), created_by TEXT DEFAULT 'Admin'
+);
+
+CREATE TABLE IF NOT EXISTS public.app_settings (
+    setting_key TEXT PRIMARY KEY, setting_value JSONB NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW(), updated_by TEXT DEFAULT 'system'
+);
+
+-- Enable Row Level Security
+ALTER TABLE public.legal_cases ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.action_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.generated_letters ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.broadcast_notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
+
+-- Public access policies (anon key)
+CREATE POLICY "public_all" ON public.legal_cases FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "public_all" ON public.action_reports FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "public_all" ON public.generated_letters FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "public_all" ON public.broadcast_notifications FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "public_all" ON public.app_settings FOR ALL USING (true) WITH CHECK (true);`;
+
+function loadSQL() {
+  document.getElementById("sql-display").textContent = SQL_SCHEMA;
+  document.getElementById("btn-copy-sql").addEventListener("click", () => {
+    navigator.clipboard.writeText(SQL_SCHEMA);
+    document.getElementById("btn-copy-sql").textContent = "✓ Copied!";
+    setTimeout(() => document.getElementById("btn-copy-sql").textContent = "📋 Copy SQL", 2500);
+  });
+}
+
+// ══════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════
+function esc(s) {
+  return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+function showAlert(id, msg, cls) {
+  const el = document.getElementById(id);
+  el.textContent = msg; el.className = `alert ${cls}`; el.style.display = "block";
+  setTimeout(() => el.style.display = "none", 6000);
+}
+
+// Auto-init if already unlocked (session exists)
+if (isSessionValid()) initApp();
+</script>
+</body>
+</html>
