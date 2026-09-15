@@ -1,10 +1,5 @@
 {
-  "version": 2,
   "name": "legal-auto-admin-hub",
-  "public": false,
-  "builds": [
-    { "src": "index.html", "use": "@vercel/static" }
-  ],
   "routes": [
     { "src": "/(.*)", "dest": "/index.html" }
   ]
