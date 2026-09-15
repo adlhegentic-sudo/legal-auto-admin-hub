@@ -314,6 +314,35 @@
     .pane { display: none; }
     .pane.active { display: block; }
 
+    /* ── UPLOAD DROP ZONE ── */
+    .drop-zone {
+      border: 2px dashed rgba(59,130,246,.4);
+      border-radius: var(--radius);
+      padding: 32px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .2s;
+      background: rgba(59,130,246,.04);
+      position: relative;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--cyan);
+      background: rgba(6,182,212,.08);
+    }
+    .drop-zone.has-file {
+      border-color: var(--emerald);
+      background: rgba(16,185,129,.08);
+    }
+    .drop-icon { font-size: 36px; margin-bottom: 8px; }
+    .drop-label { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .drop-hint { font-size: 12px; color: var(--text-muted); }
+    .gh-config-bar {
+      background: rgba(59,130,246,.07);
+      border: 1px solid rgba(59,130,246,.2);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+    }
+
     /* ── LETTER MODAL ── */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 9998; padding: 20px; display: none; }
     .modal-overlay.open { display: flex; }
@@ -382,10 +411,127 @@
     <!-- Tabs -->
     <nav class="tabs" id="tabs">
       <button class="tab active" data-tab="broadcast">📢 Broadcast Push</button>
+      <button class="tab" data-tab="update">🚀 Publish Update</button>
       <button class="tab" data-tab="cases">🗄️ Case Memory</button>
       <button class="tab" data-tab="letters">✉️ Letter Archive</button>
       <button class="tab" data-tab="sql">📋 SQL Schema</button>
     </nav>
+
+    <!-- ──── TAB: PUBLISH UPDATE ──── -->
+    <div class="pane" id="pane-update">
+      <div class="grid-2">
+
+        <!-- LEFT: Upload & Publish -->
+        <div class="card">
+          <div class="card-title">🚀 Publish Extension Update</div>
+          <div class="card-sub">Upload a new <code>.zip</code> build to GitHub Releases and instantly notify all users.</div>
+
+          <!-- GitHub PAT Config -->
+          <div class="gh-config-bar" id="gh-config-bar">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span style="font-size:13px;color:var(--text-muted)">🔑 GitHub PAT:</span>
+              <input type="password" id="gh-pat-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="flex:1;min-width:180px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:7px 12px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+              <button class="btn-secondary" id="btn-save-pat" style="padding:7px 14px;font-size:12px;white-space:nowrap">Save Token</button>
+              <span id="pat-status" style="font-size:12px;color:var(--text-muted)"></span>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Needs <strong style="color:var(--cyan)">repo</strong> scope. Stored in browser localStorage only. <a href="https://github.com/settings/tokens/new?scopes=repo&description=LegalAutoAdminHub" target="_blank" style="color:var(--cyan)">Generate token →</a></div>
+          </div>
+
+          <form class="form" id="update-form" style="margin-top:16px">
+            <!-- Drop Zone -->
+            <div class="drop-zone" id="drop-zone" tabindex="0" role="button" aria-label="Drop extension zip here">
+              <div class="drop-icon">📦</div>
+              <div class="drop-label" id="drop-label">Drop <code>.zip</code> here or click to browse</div>
+              <div class="drop-hint">Max 100MB · Chrome Extension package</div>
+              <input type="file" id="zip-input" accept=".zip" style="display:none">
+            </div>
+
+            <div class="row-2">
+              <div class="field">
+                <label>Version *</label>
+                <input type="text" id="u-version" required placeholder="e.g. 2.1.0" pattern="[0-9]+\.[0-9]+\.[0-9]+.*">
+                <span class="help">Semantic versioning: MAJOR.MINOR.PATCH</span>
+              </div>
+              <div class="field">
+                <label>Release Name</label>
+                <input type="text" id="u-name" placeholder="e.g. Cloud Memory Release">
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Release Notes</label>
+              <textarea id="u-notes" rows="4" placeholder="What's new in this version?&#10;- Added: Supabase cloud memory&#10;- Fixed: Batch processing bug&#10;- Improved: Notification bell"></textarea>
+            </div>
+
+            <div class="field">
+              <label style="display:flex;align-items:center;gap:8px">
+                <input type="checkbox" id="u-prerelease" style="width:16px;height:16px;accent-color:var(--cyan)">
+                Mark as Pre-release (beta)
+              </label>
+            </div>
+
+            <!-- Progress -->
+            <div id="upload-progress" style="display:none">
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+                <span id="progress-label">Uploading...</span>
+                <span id="progress-pct">0%</span>
+              </div>
+              <div style="background:rgba(255,255,255,.08);border-radius:9999px;height:6px;overflow:hidden">
+                <div id="progress-bar" style="height:100%;background:linear-gradient(90deg,var(--blue),var(--cyan));border-radius:9999px;width:0%;transition:width .3s"></div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn-primary large" id="btn-publish" disabled>
+              🚀 Publish &amp; Notify Users
+            </button>
+            <div class="alert" id="update-alert"></div>
+          </form>
+        </div>
+
+        <!-- RIGHT: Release History + Preview -->
+        <div style="display:flex;flex-direction:column;gap:20px">
+
+          <!-- Auto-Broadcast Preview -->
+          <div class="card">
+            <div class="card-title" style="margin-bottom:8px">🔔 Auto-Broadcast Preview</div>
+            <div class="card-sub" style="margin-bottom:12px">Notification sent to all users after publish:</div>
+            <div class="preview-chrome">
+              <div class="chrome-hdr">
+                <span>⚖️</span>
+                <span class="chrome-app">Legal Department Automation</span>
+                <span class="chrome-time">now</span>
+              </div>
+              <div class="chrome-body">
+                <h4 id="uprev-title">🚀 Legal Auto v?.?.? Available</h4>
+                <p id="uprev-msg">A new version is ready. Click to download and install.</p>
+              </div>
+            </div>
+            <div class="preview-inapp">
+              <span class="inapp-badge badge-update">UPDATE</span>
+              <div class="inapp-body">
+                <strong id="uprev-inapp-title">🚀 Legal Auto v?.?.? Available</strong>
+                <p id="uprev-inapp-notes">New release ready to install.</p>
+              </div>
+              <button class="inapp-btn">⬇️ Download</button>
+            </div>
+          </div>
+
+          <!-- Release History -->
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <strong style="font-size:14px">📋 GitHub Release History</strong>
+              <button class="btn-secondary" id="btn-refresh-releases" style="padding:5px 12px;font-size:12px">🔄 Refresh</button>
+            </div>
+            <div class="tbl-wrap">
+              <table id="releases-table">
+                <thead><tr><th>Version</th><th>Status</th><th>Size</th><th>Downloads</th><th>Date</th><th></th></tr></thead>
+                <tbody id="releases-tbody"><tr><td colspan="6" class="text-center text-muted" style="padding:16px">Save GitHub token to load releases</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- ──── TAB: BROADCAST ──── -->
     <div class="pane active" id="pane-broadcast">
@@ -686,6 +832,7 @@ function initApp() {
   loadLetters();
   loadSQL();
   setupModal();
+  initUpdateTab();
 }
 
 // ══════════════════════════════════════════════════
@@ -1012,6 +1159,224 @@ function showAlert(id, msg, cls) {
   const el = document.getElementById(id);
   el.textContent = msg; el.className = `alert ${cls}`; el.style.display = "block";
   setTimeout(() => el.style.display = "none", 6000);
+}
+
+// ══════════════════════════════════════════════════
+// PUBLISH UPDATE — GitHub Releases + Auto-Broadcast
+// ══════════════════════════════════════════════════
+const GH_OWNER = "adlhegentic-sudo";
+const GH_REPO  = "legal-auto-admin-hub"; // change to your extension's repo if different
+const PAT_KEY  = "la_gh_pat";
+
+let selectedZipFile = null;
+let githubPAT = localStorage.getItem(PAT_KEY) || "";
+
+function initUpdateTab() {
+  const patInput = document.getElementById("gh-pat-input");
+  const patStatus = document.getElementById("pat-status");
+  if (githubPAT) {
+    patInput.value = githubPAT;
+    patStatus.textContent = "✓ Token saved";
+    patStatus.style.color = "var(--emerald)";
+    loadReleases();
+  }
+
+  document.getElementById("btn-save-pat").addEventListener("click", () => {
+    const val = patInput.value.trim();
+    if (!val.startsWith("ghp_") && !val.startsWith("github_pat_")) {
+      patStatus.textContent = "⚠️ Invalid token format";
+      patStatus.style.color = "var(--rose)";
+      return;
+    }
+    githubPAT = val;
+    localStorage.setItem(PAT_KEY, val);
+    patStatus.textContent = "✓ Saved!";
+    patStatus.style.color = "var(--emerald)";
+    loadReleases();
+  });
+
+  // Drop zone
+  const dz = document.getElementById("drop-zone");
+  const fi = document.getElementById("zip-input");
+  dz.addEventListener("click", () => fi.click());
+  dz.addEventListener("keydown", e => { if (e.key==="Enter"||e.key===" ") fi.click(); });
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag-over"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("drag-over"));
+  dz.addEventListener("drop", e => {
+    e.preventDefault();
+    dz.classList.remove("drag-over");
+    const f = e.dataTransfer.files[0];
+    if (f && f.name.endsWith(".zip")) setZipFile(f);
+    else showAlert("update-alert", "❌ Please drop a .zip file", "error");
+  });
+  fi.addEventListener("change", e => { if (e.target.files[0]) setZipFile(e.target.files[0]); });
+
+  // Live preview sync
+  ["u-version","u-name","u-notes"].forEach(id => {
+    document.getElementById(id).addEventListener("input", syncUpdatePreview);
+  });
+
+  // Refresh button
+  document.getElementById("btn-refresh-releases").addEventListener("click", loadReleases);
+
+  // Form submit
+  document.getElementById("update-form").addEventListener("submit", publishUpdate);
+}
+
+function setZipFile(f) {
+  selectedZipFile = f;
+  const dz = document.getElementById("drop-zone");
+  dz.classList.add("has-file");
+  document.getElementById("drop-label").innerHTML = `✅ <strong>${esc(f.name)}</strong> (${(f.size/1024/1024).toFixed(2)} MB)`;
+  document.getElementById("btn-publish").disabled = false;
+  syncUpdatePreview();
+}
+
+function syncUpdatePreview() {
+  const v = document.getElementById("u-version").value || "?.?.?";
+  const n = document.getElementById("u-notes").value || "New release ready to install.";
+  const title = `🚀 Legal Auto v${v} Available`;
+  document.getElementById("uprev-title").textContent = title;
+  document.getElementById("uprev-inapp-title").textContent = title;
+  document.getElementById("uprev-msg").textContent = "A new version is ready. Click to download and install.";
+  document.getElementById("uprev-inapp-notes").textContent = n.split("\n")[0].replace(/^[-*•]\s*/,"").substring(0,80);
+}
+
+function setProgress(label, pct) {
+  document.getElementById("upload-progress").style.display = "block";
+  document.getElementById("progress-label").textContent = label;
+  document.getElementById("progress-pct").textContent = pct + "%";
+  document.getElementById("progress-bar").style.width = pct + "%";
+}
+
+async function publishUpdate(e) {
+  e.preventDefault();
+  if (!selectedZipFile) return;
+  if (!githubPAT) { showAlert("update-alert", "❌ Save your GitHub token first", "error"); return; }
+
+  const version    = document.getElementById("u-version").value.trim();
+  const name       = document.getElementById("u-name").value.trim() || `Legal Auto v${version}`;
+  const notes      = document.getElementById("u-notes").value.trim();
+  const prerelease = document.getElementById("u-prerelease").checked;
+  const tagName    = `v${version}`;
+  const btn        = document.getElementById("btn-publish");
+
+  btn.disabled = true;
+  btn.textContent = "⏳ Publishing...";
+
+  try {
+    // STEP 1: Create GitHub Release
+    setProgress("📝 Creating GitHub release...", 20);
+    const releaseRes = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/releases`, {
+      method: "POST",
+      headers: {
+        "Authorization": `token ${githubPAT}`,
+        "Accept": "application/vnd.github+json",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        tag_name:    tagName,
+        name:        name,
+        body:        notes || `Legal Auto ${tagName} — see changes below.`,
+        draft:       false,
+        prerelease:  prerelease
+      })
+    });
+    if (!releaseRes.ok) {
+      const err = await releaseRes.json();
+      throw new Error(`GitHub: ${err.message || releaseRes.status}`);
+    }
+    const release = await releaseRes.json();
+    const uploadUrl = release.upload_url.replace("{?name,label}", "");
+    const releasePageUrl = release.html_url;
+
+    // STEP 2: Upload ZIP asset
+    setProgress(`📦 Uploading ${selectedZipFile.name}...`, 50);
+    const assetRes = await fetch(`${uploadUrl}?name=${encodeURIComponent(selectedZipFile.name)}`, {
+      method: "POST",
+      headers: {
+        "Authorization": `token ${githubPAT}`,
+        "Accept": "application/vnd.github+json",
+        "Content-Type": "application/zip"
+      },
+      body: selectedZipFile
+    });
+    if (!assetRes.ok) {
+      const err = await assetRes.json();
+      throw new Error(`Upload failed: ${err.message || assetRes.status}`);
+    }
+    const asset = await assetRes.json();
+    const downloadUrl = asset.browser_download_url;
+
+    // STEP 3: Auto-broadcast via Supabase
+    setProgress("📡 Broadcasting notification to all users...", 80);
+    const d = new Date(); d.setDate(d.getDate() + 30);
+    await sbFetch("broadcast_notifications", {
+      method: "POST",
+      body: JSON.stringify({
+        title:        `🚀 Legal Auto ${tagName} Available`,
+        message:      notes ? notes.split("\n")[0].replace(/^[-*•]\s*/,"").substring(0,200) : `Version ${tagName} is ready. Download and install the update.`,
+        type:         prerelease ? "warning" : "update",
+        action_url:   downloadUrl,
+        action_label: `⬇️ Download ${tagName}`,
+        is_active:    true,
+        expires_at:   d.toISOString(),
+        created_by:   "Admin"
+      })
+    });
+
+    setProgress("✅ Done!", 100);
+    showAlert("update-alert",
+      `✅ Released! <a href="${releasePageUrl}" target="_blank" style="color:var(--cyan)">View on GitHub</a> — <a href="${downloadUrl}" style="color:var(--cyan)">Download link</a> — Notification sent to all users 🔔`,
+      "success"
+    );
+    // Reset
+    selectedZipFile = null;
+    document.getElementById("drop-zone").classList.remove("has-file");
+    document.getElementById("drop-label").innerHTML = `Drop <code>.zip</code> here or click to browse`;
+    document.getElementById("update-form").reset();
+    document.getElementById("btn-publish").disabled = true;
+    loadReleases();
+    loadBroadcasts();
+
+  } catch(err) {
+    showAlert("update-alert", `❌ ${err.message}`, "error");
+    document.getElementById("upload-progress").style.display = "none";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "🚀 Publish & Notify Users";
+  }
+}
+
+async function loadReleases() {
+  if (!githubPAT) return;
+  const tbody = document.getElementById("releases-tbody");
+  tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted" style="padding:12px">Loading...</td></tr>`;
+  try {
+    const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/releases?per_page=10`, {
+      headers: { "Authorization": `token ${githubPAT}`, "Accept": "application/vnd.github+json" }
+    });
+    const releases = await res.json();
+    if (!Array.isArray(releases) || !releases.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted" style="padding:12px">No releases yet.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = releases.map(r => {
+      const asset = r.assets?.[0];
+      const sizeMB = asset ? (asset.size/1024/1024).toFixed(2) + " MB" : "—";
+      const dlCount = asset ? asset.download_count : 0;
+      return `<tr>
+        <td><a href="${r.html_url}" target="_blank" style="color:var(--cyan);font-weight:700">${esc(r.tag_name)}</a></td>
+        <td>${r.prerelease ? '<span class="pill pill-inactive">Pre-release</span>' : '<span class="pill pill-active">Stable</span>'}</td>
+        <td style="font-size:12px;color:var(--text-muted)">${sizeMB}</td>
+        <td style="font-size:12px">${dlCount} ⬇️</td>
+        <td style="font-size:11px;color:var(--text-muted)">${r.published_at ? new Date(r.published_at).toLocaleDateString() : "—"}</td>
+        <td>${asset ? `<a href="${asset.browser_download_url}" class="btn-primary" style="padding:4px 10px;font-size:11px;text-decoration:none">⬇️</a>` : ""}</td>
+      </tr>`;
+    }).join("");
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="color:var(--rose);padding:12px">${e.message}</td></tr>`;
+  }
 }
 
 // Auto-init if already unlocked (session exists)
